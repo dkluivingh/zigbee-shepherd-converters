@@ -212,9 +212,9 @@ const devices = [
         fromZigbee: [
             fz.QBKG04LM_QBKG11LM_state, fz.ignore_onoff_change, fz.ignore_basic_change, fz.ignore_basic_report,
         ],
-        toZigbee: [tz.on_off],
+        toZigbee: [tz.on_off, tz.xiaomi_decoupled_mode],
         ep: (device) => {
-            return {'': 2};
+            return {'system': 1, 'default': 2};
         },
     },
     {
@@ -238,9 +238,9 @@ const devices = [
         fromZigbee: [
             fz.QBKG03LM_QBKG12LM_state, fz.QBKG03LM_buttons, fz.ignore_basic_change, fz.ignore_basic_report,
         ],
-        toZigbee: [tz.on_off],
+        toZigbee: [tz.on_off, tz.xiaomi_decoupled_mode],
         ep: (device) => {
-            return {'left': 2, 'right': 3};
+            return {'system': 1, 'left': 2, 'right': 3};
         },
     },
     {
@@ -598,9 +598,7 @@ const devices = [
         model: 'E1524',
         description: 'TRADFRI remote control',
         supports:
-            'toggle, arrow left/right click/hold/release, brightness up/down click/hold/release ' +
-            '(**[requires additional setup!]' +
-            '(http://www.zigbee2mqtt.io/information/coordinator_group.md)**)',
+            'toggle, arrow left/right click/hold/release, brightness up/down click/hold/release',
         vendor: 'IKEA',
         fromZigbee: [
             fz.cmdToggle, fz.E1524_arrow_click, fz.E1524_arrow_hold, fz.E1524_arrow_release,
@@ -1222,6 +1220,13 @@ const devices = [
         vendor: 'Innr',
         description: 'B22 Bulb RGBW',
         extend: generic.light_onoff_brightness_colortemp_colorxy,
+    },
+    {
+        zigbeeModel: ['RB 265'],
+        model: 'RB 265',
+        vendor: 'Innr',
+        description: 'E27 Bulb',
+        extend: generic.light_onoff_brightness,
     },
     {
         zigbeeModel: ['RB 285 C'],
@@ -2179,8 +2184,9 @@ const devices = [
                 (cb) => device.bind('ssIasZone', coordinator, cb),
                 (cb) => device.functional('ssIasZone', 'enrollRsp', {enrollrspcode: 0, zoneid: 23}, cb),
                 (cb) => device.bind('genPowerCfg', coordinator, cb),
-                (cb) => device.report('genPowerCfg', 'batteryPercentageRemaining', 0, 65535, 0, cb), // once per day
-                (cb) => device.report('genPowerCfg', 'batteryAlarmState', 1, 65535, 1, cb),
+                // Time is in seconds. 65535 means no report. 65534 is max value: 18 hours, 12 minutes 14 seconds.
+                (cb) => device.report('genPowerCfg', 'batteryPercentageRemaining', 0, 65534, 0, cb),
+                (cb) => device.report('genPowerCfg', 'batteryAlarmState', 1, 65534, 1, cb),
             ];
 
             execute(device, actions, callback, 1000);
@@ -2387,9 +2393,7 @@ const devices = [
         zigbeeModel: ['ZBT-Remote-ALL-RGBW'],
         model: 'MLI-404011',
         description: 'Tint remote control',
-        supports: 'toggle, brightness, other buttons are not supported yet! ' +
-            '(**[requires additional setup!]' +
-            '(http://www.zigbee2mqtt.io/information/coordinator_group.md)**)',
+        supports: 'toggle, brightness, other buttons are not supported yet!',
         vendor: 'Müller Licht',
         fromZigbee: [
             fz.tint404011_on, fz.tint404011_off, fz.cmdToggle, fz.tint404011_brightness_updown_click,
@@ -2553,6 +2557,41 @@ const devices = [
 
             execute(device, actions, callback);
         },
+    },
+
+    // ELKO
+    {
+        zigbeeModel: ['ElkoDimmerZHA'],
+        model: '316GLEDRF',
+        vendor: 'ELKO',
+        description: 'ZigBee in-wall smart dimmer',
+        supports: 'on/off, brightness',
+        fromZigbee: [fz.brightness, fz.ignore_onoff_change, fz.state],
+        toZigbee: [tz.on_off, tz.light_brightness, tz.ignore_transition],
+        configure: (ieeeAddr, shepherd, coordinator, callback) => {
+            const cfg = {direction: 0, attrId: 0, dataType: 16, minRepIntval: 0, maxRepIntval: 1000, repChange: 0};
+            const device = shepherd.find(ieeeAddr, 1);
+            const actions = [
+                (cb) => device.bind('genOnOff', coordinator, cb),
+                (cb) => device.foundation('genOnOff', 'configReport', [cfg], foundationCfg, cb),
+            ];
+
+            execute(device, actions, callback);
+        },
+    },
+
+    // LivingWise
+    {
+        zigbeeModel: ['abb71ca5fe1846f185cfbda554046cce'],
+        model: 'LVS-ZB500D',
+        vendor: 'LivingWise',
+        description: 'ZigBee smart dimmer switch',
+        supports: 'on/off, brightness',
+        toZigbee: [tz.on_off, tz.light_brightness],
+        fromZigbee: [
+            fz.state, fz.brightness, fz.ignore_light_brightness_report, fz.ignore_onoff_change,
+            fz.ignore_genIdentify,
+        ],
     },
 ];
 
